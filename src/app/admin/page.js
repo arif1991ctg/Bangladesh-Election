@@ -1,6 +1,5 @@
 import { adminDb } from '@/lib/firebaseAdmin';
 import DashboardCharts from '@/components/admin/DashboardCharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // I'll need to create these or just use div
 import { Users, UserCheck, Vote } from 'lucide-react';
 
 async function getStats() {
