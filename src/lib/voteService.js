@@ -40,6 +40,14 @@ export async function submitVote(seatId, candidateId, fingerprint, candidateName
 
         // Use transaction to ensure atomic operations
         await runTransaction(db, async (transaction) => {
+            // READS FIRST
+            const candidateVoteRef = doc(db, 'voteCounts', seatId, 'candidates', candidateId);
+            const candidateDoc = await transaction.get(candidateVoteRef);
+
+            const seatVoteRef = doc(db, 'voteCounts', seatId);
+            const seatDoc = await transaction.get(seatVoteRef);
+
+            // WRITES SECOND
             // 1. Save the vote record
             const voteData = {
                 seatId,
@@ -53,9 +61,6 @@ export async function submitVote(seatId, candidateId, fingerprint, candidateName
             transaction.set(voteRef, voteData);
 
             // 2. Increment candidate vote count
-            const candidateVoteRef = doc(db, 'voteCounts', seatId, 'candidates', candidateId);
-            const candidateDoc = await transaction.get(candidateVoteRef);
-
             if (candidateDoc.exists()) {
                 transaction.update(candidateVoteRef, { count: increment(1) });
             } else {
@@ -70,9 +75,6 @@ export async function submitVote(seatId, candidateId, fingerprint, candidateName
             }
 
             // 3. Increment seat total vote count
-            const seatVoteRef = doc(db, 'voteCounts', seatId);
-            const seatDoc = await transaction.get(seatVoteRef);
-
             if (seatDoc.exists()) {
                 transaction.update(seatVoteRef, { totalVotes: increment(1) });
             } else {
