@@ -11,6 +11,7 @@ import {
     serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { getCandidatesForSeat } from './electionData';
 
 // ==================== VOTE SUBMISSION ====================
 
@@ -131,28 +132,39 @@ export async function checkVoteStatus(fingerprint) {
  */
 export async function getSeatVoteCounts(seatId) {
     try {
-        // Get all candidates for this seat
+        // Parse seatId to get district and number
+        const parts = seatId.split('-');
+        const seatNumber = parseInt(parts.pop());
+        const districtId = parts.join('-');
+
+        // 1. Get static candidate data (Source of Truth for metadata)
+        const staticCandidates = getCandidatesForSeat(districtId, seatNumber);
+
+        // 2. Get real vote counts from Firebase
         const candidatesRef = collection(db, 'voteCounts', seatId, 'candidates');
         const snapshot = await getDocs(candidatesRef);
-
-        const candidates = [];
+        const dbCounts = {}; // Map candidateId -> count
         snapshot.forEach(doc => {
-            candidates.push({
-                id: doc.id,
-                ...doc.data()
-            });
+            dbCounts[doc.id] = doc.data().count || 0;
         });
 
+        // 3. Merge static data with DB counts
+        const candidates = staticCandidates.map(c => ({
+            ...c,
+            count: dbCounts[c.id] || 0,
+            votes: dbCounts[c.id] || 0 // UI sometimes uses 'votes'
+        }));
+
         // Sort by vote count (descending)
-        candidates.sort((a, b) => (b.count || 0) - (a.count || 0));
+        candidates.sort((a, b) => b.count - a.count);
 
         // Get seat total
         const seatRef = doc(db, 'voteCounts', seatId);
         const seatDoc = await getDoc(seatRef);
-        const totalVotes = seatDoc.exists() ? seatDoc.data().totalVotes || 0 : 0;
+        const totalVotes = seatDoc.exists() ? seatDoc.data().totalVotes || 0 : candidates.reduce((sum, c) => sum + c.count, 0);
 
         // Determine winner
-        const winner = candidates.length > 0 ? candidates[0] : null;
+        const winner = candidates.length > 0 && candidates[0].count > 0 ? candidates[0] : null;
 
         return {
             seatId,
