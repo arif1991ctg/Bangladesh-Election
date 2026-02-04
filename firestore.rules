@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is admin (optional, if we use Client SDK for Admin)
+    // But we are mainly using Admin SDK for admin tasks.
+    
+    // Seats: Public Read, No Write (Admin updates via API/AdminSDK)
+    match /seats/{seat} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Candidates: Public Read, No Write
+    match /candidates/{candidate} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Votes: No public access. Created via API Route.
+    match /votes/{vote} {
+       allow read, write: if false;
+    }
+    
+    // Config: Public Read (for election status), No Write
+    match /config/{doc} {
+       allow read: if true;
+       allow write: if false;
+    }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
