@@ -2,8 +2,14 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { Search } from 'lucide-react';
 
 async function getSeats() {
-    const snapshot = await adminDb.collection('seats').orderBy('number').get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (!adminDb) return [];
+    try {
+        const snapshot = await adminDb.collection('seats').orderBy('number').get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error('Error fetching seats:', error);
+        return [];
+    }
 }
 
 export default async function AdminSeatsPage() {

@@ -2,6 +2,7 @@ import CandidateForm from '@/components/admin/CandidateForm';
 import { adminDb } from '@/lib/firebaseAdmin';
 
 async function getSeats() {
+    if (!adminDb) return [];
     // Need to select seat when creating candidate
     const snapshot = await adminDb.collection('seats').orderBy('number').get();
     return snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, number: doc.data().number }));

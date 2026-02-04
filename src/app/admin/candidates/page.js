@@ -5,9 +5,15 @@ import { Plus, Trash2, Edit } from 'lucide-react';
 export const revalidate = 0; // Always fresh
 
 async function getCandidates() {
-    const snapshot = await adminDb.collection('candidates').orderBy('voteCount', 'desc').get();
-    // We should also fetch seat names for display, but for now just show seatId
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (!adminDb) return [];
+    try {
+        const snapshot = await adminDb.collection('candidates').orderBy('voteCount', 'desc').get();
+        // We should also fetch seat names for display, but for now just show seatId
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error('Error fetching candidates:', error);
+        return [];
+    }
 }
 
 export default async function AdminCandidatesPage() {
