@@ -16,9 +16,14 @@ service cloud.firestore {
       allow write: if false;
     }
     
-    // Votes: No public access. Created via API Route.
+    // Votes: Allow create/read for duplications check (Client Side voting)
     match /votes/{vote} {
-       allow read, write: if false;
+       allow read, write: if true;
+    }
+
+    // Vote Counts: Allow updates
+    match /voteCounts/{document=**} {
+       allow read, write: if true;
     }
     
     // Config: Public Read (for election status), No Write
