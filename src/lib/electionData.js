@@ -280,6 +280,42 @@ export const chittagong2Candidates = [
     },
 ];
 
+// Real candidates for চট্রগ্রাম-৩ from EC website
+export const chittagong3Candidates = [
+    {
+        id: 'ctg3-1',
+        name: 'মুহাম্মদ আলা উদ্দীন',
+        party: 'বাংলাদেশ জামায়াতে ইসলামী',
+        symbol: 'দাঁড়িপাল্লা',
+        symbolEmoji: '⚖️',
+        partyType: 'jamat'
+    },
+    {
+        id: 'ctg3-2',
+        name: 'মোহাম্মাদ আমজাদ হোসেন',
+        party: 'ইসলামী আন্দোলন বাংলাদেশ',
+        symbol: 'হাতপাখা',
+        symbolEmoji: '🪭',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg3-3',
+        name: 'মোঃ মোয়াহেদুল মাওলা',
+        party: 'স্বতন্ত্র',
+        symbol: 'ফুটবল',
+        symbolEmoji: '⚽',
+        partyType: 'independent'
+    },
+    {
+        id: 'ctg3-4',
+        name: 'মোস্তফা কামাল পাশা',
+        party: 'বাংলাদেশ জাতীয়তাবাদী দল - বি.এন.পি',
+        symbol: 'ধানের শীষ',
+        symbolEmoji: '🌾',
+        partyType: 'bnp'
+    },
+];
+
 // Party color mappings
 export const partyColors = {
     jamat: {
@@ -323,6 +359,11 @@ export const getCandidatesForSeat = (districtId, seatNumber) => {
     // Real data for Chittagong-2
     if (districtId === 'chittagong' && seatNumber === 2) {
         return chittagong2Candidates;
+    }
+
+    // Real data for Chittagong-3
+    if (districtId === 'chittagong' && seatNumber === 3) {
+        return chittagong3Candidates;
     }
 
     // For other seats, generate dummy candidates

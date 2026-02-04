@@ -2,52 +2,108 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Loader2, Check, Copy, RefreshCw } from 'lucide-react';
+import { Download, Loader2, Check, Copy, FileText } from 'lucide-react';
 
-const availableSeats = [
-    'chittagong-1', 'chittagong-2', 'chittagong-3', 'chittagong-4',
-    'chittagong-5', 'chittagong-6', 'chittagong-7', 'chittagong-8',
-    'chittagong-9', 'chittagong-10', 'chittagong-11', 'chittagong-12',
-    'chittagong-13', 'chittagong-14', 'chittagong-15', 'chittagong-16',
-];
+// Symbol emoji mapping
+const symbolEmojiMap = {
+    'দাঁড়িপাল্লা': '⚖️',
+    'ধানের শীষ': '🌾',
+    'তারা': '⭐',
+    'আপেল': '🍎',
+    'হাতপাখা': '🪭',
+    'হাত (পাঞ্জা)': '✋',
+    'হাত': '✋',
+    'লাঙ্গল': '🌿',
+    'কলম': '🖊️',
+    'কেটলি': '☕',
+    'মাথাল': '🎓',
+    'চেয়ার': '🪑',
+    'কাঁচি': '✂️',
+    'একতারা': '🎸',
+    'ট্রাক': '🚚',
+    'ফুটবল': '⚽',
+    'হরিণ': '🦌',
+    'নৌকা': '⛵',
+    'গোলাপ': '🌹',
+    'ঘড়ি': '⏰',
+    'ছাতা': '☂️',
+    'বই': '📚',
+};
+
+const getPartyType = (partyName) => {
+    if (!partyName) return 'other';
+    const lower = partyName.toLowerCase();
+    if (lower.includes('জামায়াত')) return 'jamat';
+    if (lower.includes('বি.এন.পি') || lower.includes('জাতীয়তাবাদী')) return 'bnp';
+    if (lower.includes('স্বতন্ত্র')) return 'independent';
+    return 'other';
+};
+
+const getSymbolEmoji = (symbol) => {
+    for (const [key, emoji] of Object.entries(symbolEmojiMap)) {
+        if (symbol?.includes(key)) return emoji;
+    }
+    return '🔵';
+};
 
 export default function AdminScrapePage() {
-    const [selectedSeat, setSelectedSeat] = useState('chittagong-1');
-    const [loading, setLoading] = useState(false);
+    const [seatId, setSeatId] = useState('ctg3');
+    const [htmlInput, setHtmlInput] = useState('');
     const [result, setResult] = useState(null);
-    const [error, setError] = useState(null);
     const [copied, setCopied] = useState(false);
 
-    const fetchCandidates = async () => {
-        setLoading(true);
-        setError(null);
-        setResult(null);
-
-        try {
-            const response = await fetch(`/api/candidates?seat=${selectedSeat}`);
-            const data = await response.json();
-
-            if (data.success) {
-                setResult(data);
-            } else {
-                setError(data.error || 'Failed to fetch');
-            }
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
+    const parseHtml = () => {
+        if (!htmlInput.trim()) {
+            alert('HTML পেস্ট করুন!');
+            return;
         }
+
+        // Parse HTML using DOMParser
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlInput, 'text/html');
+        const rows = doc.querySelectorAll('tbody tr');
+
+        const candidates = [];
+
+        rows.forEach((row, index) => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 5) {
+                const name = cells[1]?.textContent?.trim() || cells[0]?.textContent?.trim();
+                const party = cells[3]?.textContent?.trim();
+                const symbol = cells[4]?.textContent?.trim();
+
+                if (name && name.length > 1) {
+                    candidates.push({
+                        id: `${seatId}-${index + 1}`,
+                        name,
+                        party,
+                        symbol,
+                        symbolEmoji: getSymbolEmoji(symbol),
+                        partyType: getPartyType(party),
+                    });
+                }
+            }
+        });
+
+        if (candidates.length === 0) {
+            alert('কোনো প্রার্থী পাওয়া যায়নি। সঠিক HTML paste করেছেন কিনা দেখুন।');
+            return;
+        }
+
+        setResult({
+            seatId,
+            candidateCount: candidates.length,
+            candidates,
+        });
     };
 
     const generateCode = () => {
         if (!result?.candidates) return '';
 
-        const seatId = selectedSeat.replace('chittagong-', 'ctg');
-
-        return `// Real candidates for ${selectedSeat} from EC website
-export const ${seatId.replace('-', '')}Candidates = [
-${result.candidates.map((c, i) => `    {
-        id: '${seatId}-${i + 1}',
+        return `// Real candidates for ${seatId} from EC website
+export const ${seatId}Candidates = [
+${result.candidates.map((c) => `    {
+        id: '${c.id}',
         name: '${c.name}',
         party: '${c.party}',
         symbol: '${c.symbol}',
@@ -68,58 +124,61 @@ ${result.candidates.map((c, i) => `    {
             <div className="max-w-4xl mx-auto">
                 <div className="text-center mb-8">
                     <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                        🔧 EC Data Scraper
+                        🔧 EC Data Parser
                     </h1>
                     <p className="text-slate-400">
-                        নির্বাচন কমিশন ওয়েবসাইট থেকে প্রার্থী তথ্য আনুন
+                        EC ওয়েবসাইট থেকে HTML কপি করে এখানে paste করুন
                     </p>
                 </div>
 
-                {/* Controls */}
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 mb-6">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1">
-                            <label className="block text-sm text-slate-400 mb-2">আসন নির্বাচন করুন</label>
-                            <select
-                                value={selectedSeat}
-                                onChange={(e) => setSelectedSeat(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white"
-                            >
-                                {availableSeats.map(seat => (
-                                    <option key={seat} value={seat}>
-                                        {seat.replace('chittagong-', 'চট্রগ্রাম-')}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="flex items-end">
-                            <button
-                                onClick={fetchCandidates}
-                                disabled={loading}
-                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="animate-spin" size={20} />
-                                        লোড হচ্ছে...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Download size={20} />
-                                        ডাটা আনুন
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
+                {/* Instructions */}
+                <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4 mb-6">
+                    <h3 className="text-blue-300 font-bold mb-2">📋 কিভাবে করবেন:</h3>
+                    <ol className="text-blue-200 text-sm space-y-1 list-decimal list-inside">
+                        <li>EC সাইটে যান: <a href="http://103.183.38.66" target="_blank" className="underline">http://103.183.38.66</a></li>
+                        <li>ত্রয়োদশ জাতীয় সংসদ নির্বাচন সিলেক্ট করুন</li>
+                        <li>জেলা ও আসন সিলেক্ট করে "অনুসন্ধান" ক্লিক করুন</li>
+                        <li>টেবিলের উপর Right Click → "Inspect" বা F12</li>
+                        <li>&lt;tbody&gt; ট্যাগ খুঁজে তার উপর Right Click → Copy → Copy outerHTML</li>
+                        <li>এখানে paste করুন</li>
+                    </ol>
                 </div>
 
-                {/* Error */}
-                {error && (
-                    <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mb-6">
-                        <p className="text-red-400">❌ {error}</p>
+                {/* Input Form */}
+                <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 mb-6">
+                    <div className="mb-4">
+                        <label className="block text-sm text-slate-400 mb-2">Seat ID (যেমন: ctg3, ctg4)</label>
+                        <input
+                            type="text"
+                            value={seatId}
+                            onChange={(e) => setSeatId(e.target.value)}
+                            placeholder="ctg3"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white"
+                        />
                     </div>
-                )}
+
+                    <div className="mb-4">
+                        <label className="block text-sm text-slate-400 mb-2">
+                            <FileText className="inline mr-1" size={16} />
+                            EC থেকে কপি করা HTML (tbody)
+                        </label>
+                        <textarea
+                            value={htmlInput}
+                            onChange={(e) => setHtmlInput(e.target.value)}
+                            placeholder="<tbody>...</tbody> এখানে paste করুন"
+                            rows={8}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white font-mono text-sm"
+                        />
+                    </div>
+
+                    <button
+                        onClick={parseHtml}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+                    >
+                        <Download size={20} />
+                        Parse করুন
+                    </button>
+                </div>
 
                 {/* Results */}
                 {result && (
@@ -128,10 +187,9 @@ ${result.candidates.map((c, i) => `    {
                         animate={{ opacity: 1, y: 0 }}
                         className="space-y-6"
                     >
-                        {/* Summary */}
                         <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4">
                             <p className="text-green-400">
-                                ✅ {result.candidateCount} জন প্রার্থী পাওয়া গেছে ({result.seatId})
+                                ✅ {result.candidateCount} জন প্রার্থী পাওয়া গেছে!
                             </p>
                         </div>
 
@@ -187,7 +245,7 @@ ${result.candidates.map((c, i) => `    {
                         </div>
 
                         <p className="text-center text-slate-500 text-sm">
-                            এই কোডটি <code className="bg-slate-800 px-2 py-1 rounded">electionData.js</code> ফাইলে পেস্ট করুন
+                            এই কোডটি <code className="bg-slate-800 px-2 py-1 rounded">electionData.js</code> ফাইলে paste করুন
                         </p>
                     </motion.div>
                 )}
