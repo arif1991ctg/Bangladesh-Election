@@ -7,7 +7,9 @@ import { CheckCircle, Loader2, ArrowLeft, AlertCircle, User, Ban } from 'lucide-
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import toast, { Toaster } from 'react-hot-toast';
 import { districts, getCandidatesForSeat, partyColors } from '@/lib/electionData';
-import { submitVote, checkVoteStatus } from '@/lib/voteService';
+
+import { checkVoteStatus } from '@/lib/voteService';
+import { submitVoteServerAction } from '@/app/actions/vote';
 
 // Check if user has already voted in ANY seat (localStorage backup)
 const getGlobalVoteStatus = () => {
@@ -98,114 +100,79 @@ export default function SeatPage({ params }) {
     }, [seatId]);
 
     const handleVote = async () => {
-        if (!selectedCandidate || isBlocked || !fingerprint) return;
+        if (!selectedCandidate) return;
 
         setLoading(true);
-
-        const selectedCandidateInfo = candidates.find(c => c.id === selectedCandidate);
-
-        // Submit to Firebase
-        const result = await submitVote(
-            seatId,
-            selectedCandidate,
-            fingerprint,
-            selectedCandidateInfo?.name || 'Unknown',
-            selectedCandidateInfo?.party || 'Unknown'
-        );
-
-        if (result.success) {
-            // Save to localStorage as backup
-            saveGlobalVote(fingerprint, seatId, selectedCandidate, selectedCandidateInfo?.name, seatName);
-
-            setGlobalVote({
-                fingerprint,
+        try {
+            // Use Server Action for IP-based locking
+            const response = await submitVoteServerAction(
                 seatId,
-                candidateId: selectedCandidate,
-                candidateName: selectedCandidateInfo?.name,
-                seatName,
-            });
-
-            toast.success('আপনার ভোট সফলভাবে গৃহীত হয়েছে!');
-        } else if (result.alreadyVoted) {
-            // Already voted - block and show message
-            setIsBlocked(true);
-            setGlobalVote({
+                selectedCandidate,
                 fingerprint,
-                seatId: result.existingVote?.seatId,
-                candidateName: result.existingVote?.candidateName,
-            });
-            toast.error(result.message);
-        } else {
-            toast.error(result.message);
-        }
+                candidates.find(c => c.id === selectedCandidate)?.name,
+                candidates.find(c => c.id === selectedCandidate)?.party
+            );
 
+            if (response.success) {
+                const voteData = {
+                    fingerprint,
+                    seatId,
+                    candidateId: selectedCandidate,
+                    candidateName: candidates.find(c => c.id === selectedCandidate)?.name,
+                    seatName: seatName
+                };
+
+                // Update Local State
+                setGlobalVote(voteData);
+                saveGlobalVote(fingerprint, seatId, voteData.candidateId, voteData.candidateName, seatName);
+                setIsBlocked(true);
+
+                toast.custom((t) => (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-green-600 text-white p-4 rounded-xl shadow-lg flex items-center gap-3"
+                    >
+                        <CheckCircle />
+                        <div>
+                            <p className="font-bold">অভিনন্দন!</p>
+                            <p className="text-sm">আপনার ভোট সফলভাবে গ্রহণ করা হয়েছে।</p>
+                        </div>
+                    </motion.div>
+                ));
+            } else {
+                // Determine if error is "Already Voted" to show block screen vs error toast
+                if (response.alreadyVoted) {
+                    setIsBlocked(true);
+                    setGlobalVote(response.existingVote || { seatId: 'unknown' });
+                    toast.error(response.message);
+                } else {
+                    toast.error(response.message);
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('দুঃখিত, প্রযুক্তিগত সমস্যার কারণে ভোট গ্রহণ করা যাচ্ছে না।');
+        }
         setLoading(false);
     };
 
+
+
+    // Voted Candidate Data (for banner)
     const votedCandidateData = globalVote
         ? candidates.find(c => c.id === globalVote.candidateId)
         : null;
 
-    // If user already voted
-    if (globalVote) {
-        const votedInThisSeat = globalVote.seatId === seatId;
-        const colors = votedCandidateData ? partyColors[votedCandidateData.partyType] : partyColors.other;
+    const votedInThisSeat = globalVote?.seatId === seatId;
+    const votedColors = votedCandidateData ? partyColors[votedCandidateData.partyType] : partyColors.other;
 
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-emerald-900 flex items-center justify-center p-4">
-                <Toaster position="bottom-center" />
-                <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 md:p-12 text-center max-w-md border border-white/20"
-                >
-                    <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircle className="w-12 h-12 text-white" />
-                    </div>
+    // Early return removed to allow viewing candidates.
+    // The banner will be rendered inline below.
 
-                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                        {votedInThisSeat ? 'ভোট সম্পন্ন! ✓' : 'আপনি ইতিমধ্যে ভোট দিয়েছেন'}
-                    </h2>
-
-                    <p className="text-white/80 mb-6">
-                        আপনি <span className="text-green-300 font-bold">{globalVote.seatName}</span> আসনে ভোট দিয়েছেন।
-                    </p>
-
-                    <div className={`rounded-xl p-4 mb-6 ${colors?.bg || 'bg-blue-600/20'} border ${colors?.border || 'border-blue-500'}`}>
-                        <p className="text-white/60 text-sm mb-2">আপনার ভোট</p>
-                        {votedCandidateData ? (
-                            <>
-                                <div className="flex items-center justify-center space-x-2 mb-2">
-                                    <span className="text-2xl">{votedCandidateData.symbolEmoji}</span>
-                                    <span className={`font-bold ${colors?.text || 'text-blue-400'}`}>{votedCandidateData.symbol}</span>
-                                </div>
-                                <p className="text-white font-medium">{votedCandidateData.name}</p>
-                                <p className="text-white/70 text-sm">{votedCandidateData.party}</p>
-                            </>
-                        ) : (
-                            <p className="text-white font-medium">{globalVote.candidateName}</p>
-                        )}
-                    </div>
-
-                    <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4 mb-6">
-                        <p className="text-yellow-300 text-sm">
-                            ⚠️ প্রতি ব্যক্তি শুধুমাত্র একটি আসনে একবার ভোট দিতে পারবেন।
-                        </p>
-                    </div>
-
-                    <Link
-                        href="/"
-                        className="inline-block bg-white/20 hover:bg-white/30 text-white px-8 py-3 rounded-full transition-all font-medium"
-                    >
-                        🏠 হোম পেজে ফিরে যান
-                    </Link>
-                </motion.div>
-            </div>
-        );
-    }
-
-    // Blocked user
-    if (isBlocked) {
+    // Blocked user (Only if NOT a normal vote - e.g. purely blocked without voting data)
+    // If they have voted (globalVote), we WANT to show the main UI in read-only mode, so we skip this block.
+    if (isBlocked && !globalVote && !hasVoted) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-red-900 flex items-center justify-center p-4">
                 <motion.div
@@ -263,6 +230,47 @@ export default function SeatPage({ params }) {
                     </div>
                 </div>
 
+                {/* Voted Banner - Re-integrated Here */}
+                {globalVote && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="mb-8"
+                    >
+                        <div className="bg-gradient-to-br from-green-900/80 via-green-800/80 to-emerald-900/80 backdrop-blur-md rounded-3xl p-6 md:p-8 text-center border border-green-500/30 shadow-2xl">
+                            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/20">
+                                <CheckCircle className="w-8 h-8 text-white" />
+                            </div>
+
+                            <h2 className="text-2xl font-bold text-white mb-2">
+                                {votedInThisSeat ? 'ভোট সম্পন্ন! ✓' : 'আপনি ইতিমধ্যে ভোট দিয়েছেন'}
+                            </h2>
+
+                            <p className="text-white/80 mb-6">
+                                আপনি <span className="text-green-300 font-bold">{globalVote.seatName}</span> আসনে ভোট দিয়েছেন।
+                            </p>
+
+                            <div className={`max-w-md mx-auto rounded-xl p-4 mb-4 ${votedColors?.bg || 'bg-slate-700/50'} border ${votedColors?.border || 'border-slate-600'}`}>
+                                <p className="text-white/60 text-sm mb-2">আপনার ভোট</p>
+                                {votedCandidateData ? (
+                                    <>
+                                        <div className="flex items-center justify-center space-x-2 mb-2">
+                                            {/* Symbol Emoji Removed - Text Only */}
+                                            <span className={`text-lg font-bold px-3 py-1 rounded-full bg-white/10 text-white`}>
+                                                {votedCandidateData.symbol}
+                                            </span>
+                                        </div>
+                                        <p className="text-white font-medium text-lg">{votedCandidateData.name}</p>
+                                        <p className="text-white/70 text-sm">{votedCandidateData.party}</p>
+                                    </>
+                                ) : (
+                                    <p className="text-white font-medium">{globalVote.candidateName}</p>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
                 {/* Candidates Grid - Taller Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
                     {candidates.map((candidate, index) => {
@@ -289,12 +297,9 @@ export default function SeatPage({ params }) {
                                         </div>
                                     )}
 
-                                    {/* Symbol - Large */}
+                                    {/* Symbol - Large (Emoji Removed) */}
                                     <div className="text-center mb-3">
-                                        <div className={`text-4xl md:text-5xl mb-2`}>
-                                            {candidate.symbolEmoji}
-                                        </div>
-                                        <span className={`text-sm font-bold px-3 py-1 rounded-full ${isSelected ? 'bg-white/20 text-white' : `${colors.bg} ${colors.text}`
+                                        <span className={`text-lg font-bold px-4 py-2 rounded-full ${isSelected ? 'bg-white/20 text-white' : `${colors.bg} ${colors.text}`
                                             }`}>
                                             {candidate.symbol}
                                         </span>
@@ -332,8 +337,8 @@ export default function SeatPage({ params }) {
                     >
                         <p className="text-slate-400 text-sm mb-2">আপনি নির্বাচিত করেছেন:</p>
                         <div className="flex items-center gap-4">
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl ${(partyColors[candidates.find(c => c.id === selectedCandidate)?.partyType] || partyColors.other).bg}`}>
-                                {candidates.find(c => c.id === selectedCandidate)?.symbolEmoji}
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg ${(partyColors[candidates.find(c => c.id === selectedCandidate)?.partyType] || partyColors.other).bg}`}>
+                                {candidates.find(c => c.id === selectedCandidate)?.symbol?.substring(0, 2)}
                             </div>
                             <div>
                                 <h3 className="text-white font-bold text-lg">{candidates.find(c => c.id === selectedCandidate)?.name}</h3>
@@ -353,8 +358,8 @@ export default function SeatPage({ params }) {
                         whileTap={{ scale: selectedCandidate ? 0.98 : 1 }}
                         onClick={handleVote}
                         disabled={!selectedCandidate || loading}
-                        className={`px-12 py-4 rounded-full text-lg font-bold text-white shadow-xl transition-all ${!selectedCandidate || loading
-                            ? "bg-slate-700 cursor-not-allowed"
+                        className={`px-12 py-4 rounded-full text-lg font-bold text-white shadow-xl transition-all ${!selectedCandidate || loading || globalVote
+                            ? "bg-slate-700 cursor-not-allowed opacity-50"
                             : "bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-green-500/40"
                             }`}
                     >
