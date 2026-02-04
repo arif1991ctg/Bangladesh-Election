@@ -70,6 +70,10 @@ const calculatePartyStandings = (results) => {
     return Object.values(standings).sort((a, b) => b.wins - a.wins);
 };
 
+import { getAllSeatResults } from '@/lib/voteService';
+
+// ... (keep generateMockResults as fallback or remove if not needed, but for now removing usage)
+
 export default function ResultsPage() {
     const [results, setResults] = useState({});
     const [loading, setLoading] = useState(true);
@@ -86,14 +90,29 @@ export default function ResultsPage() {
 
     const loadResults = async () => {
         setLoading(true);
-        // In production, fetch from Firebase
-        // const data = await getAllSeatResults();
+        try {
+            // Fetch real data from Firebase
+            const realData = await getAllSeatResults();
 
-        // For demo, use mock data
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const mockResults = generateMockResults();
-        setResults(mockResults);
-        setLastUpdated(new Date());
+            // Convert array to object format expected by UI
+            const formattedResults = {};
+            realData.forEach(seat => {
+                const district = districts.find(d => d.id === seat.seatId.split('-')[0]); // Approximate district find
+                const districtName = district ? district.name : seat.seatId;
+
+                formattedResults[seat.seatId] = {
+                    ...seat,
+                    seatName: seat.seatId, // Or derive from district if needed
+                    districtName: districtName,
+                    margin: seat.candidates.length > 1 ? (seat.winner?.count || 0) - (seat.candidates[1]?.count || 0) : (seat.winner?.count || 0)
+                };
+            });
+
+            setResults(formattedResults);
+            setLastUpdated(new Date());
+        } catch (error) {
+            console.error("Failed to load results:", error);
+        }
         setLoading(false);
     };
 

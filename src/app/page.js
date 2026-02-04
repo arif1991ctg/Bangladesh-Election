@@ -52,18 +52,36 @@ function Countdown({ targetDate }) {
     );
 }
 
+import { getElectionStats } from '@/lib/voteService';
+
+// ...
+
 export default function Home() {
-    const [votes, setVotes] = useState({ jamat: 12453, bnp: 11876, independent: 3421 });
-    const totalVotes = votes.jamat + votes.bnp + votes.independent;
+    const [votes, setVotes] = useState({ jamat: 0, bnp: 0, independent: 0 });
+    const [totalVotes, setTotalVotes] = useState(0);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            setVotes(prev => ({
-                jamat: prev.jamat + Math.floor(Math.random() * 5),
-                bnp: prev.bnp + Math.floor(Math.random() * 5),
-                independent: prev.independent + Math.floor(Math.random() * 2),
-            }));
-        }, 3000);
+        const fetchStats = async () => {
+            try {
+                const stats = await getElectionStats();
+                setTotalVotes(stats.totalVotes || 0);
+
+                // Map party votes from Firebase
+                if (stats.partyVotes) {
+                    setVotes({
+                        jamat: stats.partyVotes['jamat'] || 0,
+                        bnp: stats.partyVotes['bnp'] || 0,
+                        independent: (stats.partyVotes['independent'] || 0) + (stats.partyVotes['other'] || 0)
+                    });
+                }
+
+            } catch (error) {
+                console.error("Error fetching stats", error);
+            }
+        };
+
+        fetchStats();
+        const interval = setInterval(fetchStats, 10000); // Poll every 10s
         return () => clearInterval(interval);
     }, []);
 

@@ -208,12 +208,24 @@ export async function getElectionStats() {
         const seatResults = await getAllSeatResults();
         const seatsWithVotes = seatResults.length;
 
-        // Count party wins
+        // Count party wins and total votes per party
         const partyWins = {};
+        const partyVotes = {};
+
         seatResults.forEach(seat => {
+            // Count wins
             if (seat.winner) {
-                const party = seat.winner.partyName || 'স্বতন্ত্র';
+                const party = seat.winner.partyType || 'other';
                 partyWins[party] = (partyWins[party] || 0) + 1;
+            }
+
+            // Count total votes per party
+            if (seat.candidates) {
+                seat.candidates.forEach(candidate => {
+                    const party = candidate.partyType || 'other';
+                    const votes = candidate.count || 0;
+                    partyVotes[party] = (partyVotes[party] || 0) + votes;
+                });
             }
         });
 
@@ -227,10 +239,11 @@ export async function getElectionStats() {
             seatsWithVotes,
             totalSeats: 300,
             partyWins: sortedParties,
+            partyVotes, // New field: { jamat: 100, bnp: 50, ... }
             lastUpdated: new Date().toISOString()
         };
     } catch (error) {
         console.error('Get election stats error:', error);
-        return { totalVotes: 0, seatsWithVotes: 0, totalSeats: 300, partyWins: [] };
+        return { totalVotes: 0, seatsWithVotes: 0, totalSeats: 300, partyWins: [], partyVotes: {} };
     }
 }
