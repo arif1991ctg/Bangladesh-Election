@@ -316,6 +316,134 @@ export const chittagong3Candidates = [
     },
 ];
 
+// Real candidates for চট্রগ্রাম-৪ from EC website
+export const chittagong4Candidates = [
+    {
+        id: 'ctg4-1',
+        name: 'মোঃ মছিউদদৌলা',
+        party: 'বাংলাদেশের কমিউনিস্ট পার্টি',
+        symbol: 'কাস্তে',
+        symbolEmoji: '☭',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg4-2',
+        name: 'মোঃ জাকারিয়া খালেদ',
+        party: 'বাংলাদেশ নেজামে ইসলাম পার্টি',
+        symbol: 'বই',
+        symbolEmoji: '📚',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg4-3',
+        name: 'জাহিদুল আলম',
+        party: 'গণসংহতি আন্দোলন',
+        symbol: 'মাথাল',
+        symbolEmoji: '🎓',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg4-4',
+        name: 'মোঃ আনোয়ার ছিদ্দিক',
+        party: 'বাংলাদেশ জামায়াতে ইসলামী',
+        symbol: 'দাঁড়িপাল্লা',
+        symbolEmoji: '⚖️',
+        partyType: 'jamat'
+    },
+    {
+        id: 'ctg4-5',
+        name: 'মোঃ শহীদুল ইসলাম চৌধুরী',
+        party: 'বাংলাদেশ সুপ্রীম পার্টি (বি.এস.পি)',
+        symbol: 'একতারা',
+        symbolEmoji: '🎸',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg4-6',
+        name: 'মোঃ দিদারুল মাওলা',
+        party: 'ইসলামী আন্দোলন বাংলাদেশ',
+        symbol: 'হাতপাখা',
+        symbolEmoji: '🪭',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg4-7',
+        name: 'এ টি এম পারভেজ',
+        party: 'গণঅধিকার পরিষদ (জিওপি)',
+        symbol: 'ট্রাক',
+        symbolEmoji: '🚚',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg4-8',
+        name: 'মোহাম্মদ আসলাম চৌধুরী',
+        party: 'বাংলাদেশ জাতীয়তাবাদী দল - বি.এন.পি',
+        symbol: 'ধানের শীষ',
+        symbolEmoji: '🌾',
+        partyType: 'bnp'
+    },
+    {
+        id: 'ctg4-9',
+        name: 'মোঃ সিরাজুদ্দৌলা',
+        party: 'বাংলাদেশ ইসলামী ফ্রন্ট',
+        symbol: 'মোমবাতি',
+        symbolEmoji: '🕯️',
+        partyType: 'other'
+    },
+];
+
+// Real candidates for চট্রগ্রাম-৫ from EC website
+export const chittagong5Candidates = [
+    {
+        id: 'ctg5-1',
+        name: 'মীর মোহাম্মদ হেলাল উদ্দীন',
+        party: 'বাংলাদেশ জাতীয়তাবাদী দল - বি.এন.পি',
+        symbol: 'ধানের শীষ',
+        symbolEmoji: '🌾',
+        partyType: 'bnp'
+    },
+    {
+        id: 'ctg5-2',
+        name: 'মতি উল্লাহ নূরী',
+        party: 'ইসলামী আন্দোলন বাংলাদেশ',
+        symbol: 'হাতপাখা',
+        symbolEmoji: '🪭',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg5-3',
+        name: 'মুহাম্মদ রফিকুল ইসলাম',
+        party: 'ইসলামিক ফ্রন্ট বাংলাদেশ',
+        symbol: 'চেয়ার',
+        symbolEmoji: '🪑',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg5-4',
+        name: 'মোঃ নাসির উদ্দীন',
+        party: 'বাংলাদেশ খেলাফত মজলিস',
+        symbol: 'রিক্সা',
+        symbolEmoji: '🛺',
+        partyType: 'other'
+    },
+    {
+        id: 'ctg5-5',
+        name: 'মোহাম্মদ ইমাম উদ্দিন রিয়াদ',
+        party: 'স্বতন্ত্র',
+        symbol: 'ফুটবল',
+        symbolEmoji: '⚽',
+        partyType: 'independent'
+    },
+    {
+        id: 'ctg5-6',
+        name: 'মোঃ আলা উদ্দিন',
+        party: 'বাংলাদেশ লেবার পার্টি',
+        symbol: 'আনারস',
+        symbolEmoji: '🍍',
+        partyType: 'other'
+    },
+];
+
 // Party color mappings
 export const partyColors = {
     jamat: {
@@ -364,6 +492,16 @@ export const getCandidatesForSeat = (districtId, seatNumber) => {
     // Real data for Chittagong-3
     if (districtId === 'chittagong' && seatNumber === 3) {
         return chittagong3Candidates;
+    }
+
+    // Real data for Chittagong-4
+    if (districtId === 'chittagong' && seatNumber === 4) {
+        return chittagong4Candidates;
+    }
+
+    // Real data for Chittagong-5
+    if (districtId === 'chittagong' && seatNumber === 5) {
+        return chittagong5Candidates;
     }
 
     // For other seats, generate dummy candidates
