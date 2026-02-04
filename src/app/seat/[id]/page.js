@@ -7,8 +7,9 @@ import { CheckCircle, Loader2, ArrowLeft, AlertCircle, User, Ban } from 'lucide-
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import toast, { Toaster } from 'react-hot-toast';
 import { districts, getCandidatesForSeat, partyColors } from '@/lib/electionData';
+import { submitVote, checkVoteStatus } from '@/lib/voteService';
 
-// Check if user has already voted in ANY seat
+// Check if user has already voted in ANY seat (localStorage backup)
 const getGlobalVoteStatus = () => {
     if (typeof window === 'undefined') return null;
     const voteData = localStorage.getItem('election_vote_2026');
@@ -22,7 +23,7 @@ const getGlobalVoteStatus = () => {
     return null;
 };
 
-// Save global vote (one person, one vote)
+// Save global vote to localStorage (backup for UI)
 const saveGlobalVote = (fingerprint, seatId, candidateId, candidateName, seatName) => {
     const voteData = {
         fingerprint,
@@ -48,6 +49,7 @@ export default function SeatPage({ params }) {
 
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [checkingVote, setCheckingVote] = useState(true);
     const [fingerprint, setFingerprint] = useState(null);
     const [globalVote, setGlobalVote] = useState(null);
     const [isBlocked, setIsBlocked] = useState(false);
@@ -61,40 +63,82 @@ export default function SeatPage({ params }) {
                 const { visitorId } = await fp.get();
                 setFingerprint(visitorId);
 
-                // Check global vote status
-                const existingVote = getGlobalVoteStatus();
-                if (existingVote) {
-                    setGlobalVote(existingVote);
-                    if (existingVote.fingerprint === visitorId) {
-                        setIsBlocked(true);
-                    }
+                // First check localStorage (fast)
+                const existingLocalVote = getGlobalVoteStatus();
+                if (existingLocalVote) {
+                    setGlobalVote(existingLocalVote);
+                    setIsBlocked(true);
+                    setCheckingVote(false);
+                    return;
                 }
+
+                // Then check Firebase (reliable - works in incognito)
+                const firebaseStatus = await checkVoteStatus(visitorId);
+                if (firebaseStatus.hasVoted) {
+                    const voteData = {
+                        fingerprint: visitorId,
+                        seatId: firebaseStatus.voteData.seatId,
+                        candidateId: firebaseStatus.voteData.candidateId,
+                        candidateName: firebaseStatus.voteData.candidateName,
+                        seatName: firebaseStatus.voteData.seatId, // approximate
+                    };
+                    setGlobalVote(voteData);
+                    setIsBlocked(true);
+                    // Also save to localStorage for faster future checks
+                    localStorage.setItem('election_vote_2026', JSON.stringify(voteData));
+                }
+
+                setCheckingVote(false);
             } catch (err) {
                 console.error('Fingerprint error:', err);
+                setCheckingVote(false);
             }
         };
         initFp();
     }, [seatId]);
 
     const handleVote = async () => {
-        if (!selectedCandidate || isBlocked) return;
+        if (!selectedCandidate || isBlocked || !fingerprint) return;
 
         setLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
 
         const selectedCandidateInfo = candidates.find(c => c.id === selectedCandidate);
 
-        saveGlobalVote(fingerprint, seatId, selectedCandidate, selectedCandidateInfo?.name, seatName);
-
-        setGlobalVote({
-            fingerprint,
+        // Submit to Firebase
+        const result = await submitVote(
             seatId,
-            candidateId: selectedCandidate,
-            candidateName: selectedCandidateInfo?.name,
-            seatName,
-        });
+            selectedCandidate,
+            fingerprint,
+            selectedCandidateInfo?.name || 'Unknown',
+            selectedCandidateInfo?.party || 'Unknown'
+        );
 
-        toast.success('আপনার ভোট সফলভাবে গৃহীত হয়েছে!');
+        if (result.success) {
+            // Save to localStorage as backup
+            saveGlobalVote(fingerprint, seatId, selectedCandidate, selectedCandidateInfo?.name, seatName);
+
+            setGlobalVote({
+                fingerprint,
+                seatId,
+                candidateId: selectedCandidate,
+                candidateName: selectedCandidateInfo?.name,
+                seatName,
+            });
+
+            toast.success('আপনার ভোট সফলভাবে গৃহীত হয়েছে!');
+        } else if (result.alreadyVoted) {
+            // Already voted - block and show message
+            setIsBlocked(true);
+            setGlobalVote({
+                fingerprint,
+                seatId: result.existingVote?.seatId,
+                candidateName: result.existingVote?.candidateName,
+            });
+            toast.error(result.message);
+        } else {
+            toast.error(result.message);
+        }
+
         setLoading(false);
     };
 
@@ -233,8 +277,8 @@ export default function SeatPage({ params }) {
                                 transition={{ delay: index * 0.05 }}
                                 onClick={() => setSelectedCandidate(candidate.id)}
                                 className={`cursor-pointer rounded-2xl overflow-hidden border-2 transition-all group relative ${isSelected
-                                        ? `${colors.border} shadow-lg scale-[1.02]`
-                                        : "border-slate-700/50 hover:border-slate-600"
+                                    ? `${colors.border} shadow-lg scale-[1.02]`
+                                    : "border-slate-700/50 hover:border-slate-600"
                                     }`}
                             >
                                 <div className={`${isSelected ? `bg-gradient-to-br ${colors.gradient}` : 'bg-gradient-to-br from-slate-800 to-slate-900'} p-4`}>
@@ -310,8 +354,8 @@ export default function SeatPage({ params }) {
                         onClick={handleVote}
                         disabled={!selectedCandidate || loading}
                         className={`px-12 py-4 rounded-full text-lg font-bold text-white shadow-xl transition-all ${!selectedCandidate || loading
-                                ? "bg-slate-700 cursor-not-allowed"
-                                : "bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-green-500/40"
+                            ? "bg-slate-700 cursor-not-allowed"
+                            : "bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-green-500/40"
                             }`}
                     >
                         {loading ? (
